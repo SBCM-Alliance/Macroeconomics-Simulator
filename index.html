@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBCM Simulator: G-Scale vs G-Cart</title>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2023.05.1/pyscript.css" />
+    <script defer src="https://pyscript.net/releases/2023.05.1/pyscript.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-scale: #e74c3c; /* G-Scale 赤 */
+            --accent-cart: #2ecc71; /* G-Cart 緑 */
+            --bg-color: #f4f6f7;
+        }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg-color); color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: var(--primary-color); }
+        .subtitle { text-align: center; color: #7f8c8d; font-size: 0.9em; margin-bottom: 30px; }
+        
+        .controls { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 30px; align-items: center; justify-content: center; background: #ecf0f1; padding: 20px; border-radius: 8px; }
+        .mode-switch { display: flex; gap: 20px; }
+        .radio-label { cursor: pointer; font-weight: bold; padding: 10px 20px; border-radius: 20px; transition: 0.3s; border: 2px solid transparent; background: #fff; }
+        
+        /* モード切替のスタイル */
+        input[type="radio"] { display: none; }
+        input[type="radio"]#mode_scale:checked + label { background-color: var(--accent-scale); color: white; border-color: var(--accent-scale); }
+        input[type="radio"]#mode_cart:checked + label { background-color: var(--accent-cart); color: white; border-color: var(--accent-cart); }
+        
+        .budget-control { width: 100%; text-align: center; }
+        input[type="range"] { width: 80%; }
+
+        /* 結果表示エリア */
+        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { padding: 20px; border-radius: 8px; background: #fff; border: 1px solid #ddd; }
+        .metric-title { font-size: 0.9em; color: #7f8c8d; }
+        .metric-value { font-size: 1.8em; font-weight: bold; margin: 10px 0; }
+        
+        /* バーグラフ */
+        .bar-container { height: 30px; background: #eee; border-radius: 15px; overflow: hidden; margin-top: 10px; position: relative; }
+        .bar-fill { height: 100%; transition: width 0.5s ease; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8em; font-weight: bold; }
+        
+        /* コンソール出力風 */
+        .log-window { background: #2c3e50; color: #2ecc71; font-family: monospace; padding: 15px; border-radius: 8px; height: 150px; overflow-y: auto; margin-top: 20px; font-size: 0.9em; }
+
+        /* G-Scale時のスタイル */
+        .scale-mode .metric-value { color: var(--accent-scale); }
+        .scale-mode .bar-fill { background: var(--accent-scale); }
+        
+        /* G-Cart時のスタイル */
+        .cart-mode .metric-value { color: var(--accent-cart); }
+        .cart-mode .bar-fill { background: var(--accent-cart); }
+
+        .btn-run { padding: 10px 20px; cursor: pointer; border-radius: 5px; border: none; background: #34495e; color: white; font-weight: bold; }
+        .btn-run:hover { opacity: 0.9; }
+
+        @media (max-width: 600px) {
+            .results-grid { grid-template-columns: 1fr; }
+            .mode-switch { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏛️ Public Works Simulator</h1>
+    <p class="subtitle">Mainstream Economics vs. SBCM Theory</p>
+
+    <!-- コントロールパネル -->
+    <div class="controls">
+        <div class="budget-control">
+            <label>予算規模 (Budget): <span id="budget_display">10億円</span></label><br>
+            <input type="range" id="budget_slider" min="1" max="100" value="10" step="1">
+        </div>
+        <div class="mode-switch">
+            <input type="radio" id="mode_scale" name="mode" value="scale" checked>
+            <label for="mode_scale" class="radio-label">🔴 G-Scale (経済学の定説)</label>
+
+            <input type="radio" id="mode_cart" name="mode" value="cart">
+            <label for="mode_cart" class="radio-label">🟢 G-Cart (SBCM理論)</label>
+        </div>
+        <button id="run_btn" class="btn-run" py-click="run_simulation()">実行 (Run)</button>
+    </div>
+
+    <!-- 結果表示 -->
+    <div id="dashboard" class="scale-mode">
+        <div class="results-grid">
+            <!-- 左側：お金の流れ -->
+            <div class="card">
+                <div class="metric-title">Flow of Wealth (富の流出先)</div>
+                
+                <p>🏢 東京 (Central): <span id="tokyo_share">0</span>%</p>
+                <div class="bar-container">
+                    <div id="bar_tokyo" class="bar-fill" style="width: 0%; background: #e74c3c;"></div>
+                </div>
+
+                <p style="margin-top:20px;">🏡 地方 (Local): <span id="local_share">0</span>%</p>
+                <div class="bar-container">
+                    <div id="bar_local" class="bar-fill" style="width: 0%; background: #2ecc71;"></div>
+                </div>
+            </div>
+
+            <!-- 右側：地域の生存率 -->
+            <div class="card">
+                <div class="metric-title">Local Survival Rate (地域生存率)</div>
+                <div id="survival_rate" class="metric-value">0%</div>
+                <p id="survival_desc" style="font-size: 0.9em;">-</p>
+                <hr>
+                <div class="metric-title">Admin Cost (行政コスト)</div>
+                <div id="admin_cost" class="metric-value">¥0</div>
+            </div>
+        </div>
+
+        <!-- ログ出力 -->
+        <div class="log-window" id="log_output">
+            System Ready...<br>
+            Select a mode and click 'Run'.
+        </div>
+    </div>
+</div>
+
+<!-- Pythonロジック -->
+<py-script>
+import js
+from pyodide.ffi import create_proxy
+
+# 定数定義
+LOCAL_CAPACITY_LIMIT = 5 # 地方企業の単独受注限界 (億円)
+ADMIN_COST_MANUAL = 0.20 # 手動管理コスト (20%)
+ADMIN_COST_ALGO = 0.01   # アルゴリズム管理コスト (1%)
+
+def run_simulation(*args):
+    # 1. 入力値の取得
+    budget_oku_str = js.document.getElementById('budget_slider').value
+    budget_oku = int(budget_oku_str)
+    budget = budget_oku * 100000000 # 円換算
+    
+    # ラジオボタンの状態取得
+    mode_scale = js.document.getElementById('mode_scale').checked
+    mode = "G-Scale" if mode_scale else "G-Cart"
+
+    # UIのリセットとモード反映
+    dashboard = js.document.getElementById('dashboard')
+    if mode_scale:
+        dashboard.classList.remove("cart-mode")
+        dashboard.classList.add("scale-mode")
+    else:
+        dashboard.classList.remove("scale-mode")
+        dashboard.classList.add("cart-mode")
+    
+    logs = []
+    logs.append(f"🚀 Simulation Started: {mode}")
+    logs.append(f"💰 Project Budget: {budget:,}円")
+
+    # ==========================================
+    # 🔴 G-Scale Logic (Mainstream Economics)
+    # ==========================================
+    if mode == "G-Scale":
+        logs.append("--- Logic: Efficiency & Scale ---")
+        logs.append("ℹ️ Policy: 'Bundling small projects for efficiency.'")
+        
+        # 1. バンドリング（包括発注）
+        # 予算が大きければ大きいほど、単一の巨大契約にする
+        contract_size = budget 
+        logs.append(f"📦 Bundled into 1 contract: {contract_size:,}円")
+
+        # 2. 受注判定 (キャパ不足の地方は排除)
+        # 5億円を超えると地方企業は受注不能になる設定
+        if contract_size > (LOCAL_CAPACITY_LIMIT * 100000000):
+            winner = "Tokyo General Contractor"
+            leakage_rate = 1.0 # 100%漏出
+            logs.append(f"⚠️ Local Capacity Exceeded ({LOCAL_CAPACITY_LIMIT}億 < {budget_oku}億)")
+            logs.append(f"🏆 Winner: {winner} (Capital > 100億)")
+            local_survival = 0
+            survival_text = "💀 壊滅 (受注ゼロ)"
+        else:
+            winner = "Local SME"
+            leakage_rate = 0.1 # 資材費などは漏れる
+            local_survival = 100
+            survival_text = "😊 生存 (受注可能)"
+
+        # 3. 行政コスト
+        admin_cost = int(budget * ADMIN_COST_MANUAL) 
+        logs.append(f"💸 Admin/Margin Cost: {admin_cost:,}円 (20%)")
+
+    # ==========================================
+    # 🟢 G-Cart Logic (SBCM Theory)
+    # ==========================================
+    else:
+        logs.append("--- Logic: Mesh Refinement & Retention ---")
+        logs.append("ℹ️ Policy: 'Splitting budget to fit local capacity.'")
+
+        # 1. メッシュ細分化 (Mesh Refinement)
+        # 地方企業のキャパ(5億円)に合わせて分割発注
+        # 安全率0.8をかけて、4億円単位くらいで分割する
+        split_unit = LOCAL_CAPACITY_LIMIT * 100000000 * 0.8
+        num_contracts = int(budget / split_unit)
+        if num_contracts < 1:
+            num_contracts = 1
+            
+        unit_price = int(budget / num_contracts)
+        
+        logs.append(f"✂️ Mesh Refinement: Split into {num_contracts} contracts")
+        logs.append(f"📉 Unit Price: {unit_price:,}円")
+
+        # 2. 受注判定
+        # 分割したので地方企業が受注可能
+        winner = "Local SME Alliance"
+        leakage_rate = 0.05 # 最小限の漏出
+        local_survival = 100
+        survival_text = "🎉 繁栄 (全社受注・循環)"
+        
+        logs.append(f"✅ Capacity Check: OK ({unit_price} < Limit)")
+        logs.append(f"🤝 Formed {num_contracts} Virtual JVs")
+
+        # 3. 行政コスト
+        admin_cost = int(budget * ADMIN_COST_ALGO)
+        logs.append(f"⚡ Algo Cost: {admin_cost:,}円 (1%)")
+
+    # ==========================================
+    # 📊 結果の計算と描画
+    # ==========================================
+    
+    # 東京への流出額 (Leakage)
+    tokyo_amount = int(budget * leakage_rate)
+    local_amount = budget - tokyo_amount
+    
+    tokyo_percent = int(leakage_rate * 100)
+    local_percent = 100 - tokyo_percent
+
+    # DOM更新
+    js.document.getElementById('tokyo_share').innerText = str(tokyo_percent)
+    js.document.getElementById('bar_tokyo').style.width = f"{tokyo_percent}%"
+    
+    tokyo_text = f"{tokyo_amount:,}円" if tokyo_percent > 15 else ""
+    js.document.getElementById('bar_tokyo').innerText = tokyo_text
+
+    js.document.getElementById('local_share').innerText = str(local_percent)
+    js.document.getElementById('bar_local').style.width = f"{local_percent}%"
+    
+    local_text = f"{local_amount:,}円" if local_percent > 15 else ""
+    js.document.getElementById('bar_local').innerText = local_text
+
+    js.document.getElementById('survival_rate').innerText = f"{local_survival}%"
+    js.document.getElementById('survival_desc').innerText = survival_text
+    js.document.getElementById('admin_cost').innerText = f"{admin_cost:,}円"
+
+    # ログ表示更新
+    log_html = "<br>".join(logs)
+    js.document.getElementById('log_output').innerHTML = log_html
+
+# スライダーの値をリアルタイム表示
+def on_slider_change(event):
+    val = event.target.value
+    js.document.getElementById('budget_display').innerText = f"{val}億円"
+
+slider_proxy = create_proxy(on_slider_change)
+js.document.getElementById('budget_slider').addEventListener("input", slider_proxy)
+
+# 初回実行
+run_simulation()
+</py-script>
+
+</body>
+</html>
