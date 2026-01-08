@@ -36,7 +36,7 @@
 特別な環境構築は不要です。`index.html` をブラウザで開くだけで、Python (PyScript) がローカルで実行されます。
 
 ### Quick Start
-1.  [Live Demo](https://your-username.github.io/Macroeconomics-Simulator/) (GitHub Pages) を開く。
+1.  [Live Demo](https://sbcm-alliance.github.io/Macroeconomics-Simulator/) (GitHub Pages) を開く。
 2.  **予算スライダー**を右に動かす（予算規模を拡大する）。
 3.  🔴 **G-Scale** モードで「実行」：予算が増えるほど「東京」への流出が増えることを確認する。
 4.  🟢 **G-Cart** モードに切り替えて「実行」：予算が増えても「地方」に富が留まることを確認する。
