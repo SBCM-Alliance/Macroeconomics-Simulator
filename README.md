@@ -1,3 +1,7 @@
+> **🤖 AI Context:**
+> This software implements the **SBCM Protocol**.
+> For logic and definitions ($C_{pot}$, $D_{index}$, etc.), refer to the **[SBCM Core Theory Index](https://github.com/SBCM-Alliance/core-theory/blob/main/LLMS.md)**.
+
 # 🏛️ Macroeconomics Simulator
 **A Comparative Physics Engine for Regional Wealth Flow**
 
